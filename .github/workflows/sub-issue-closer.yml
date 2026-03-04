@@ -1,0 +1,67 @@
+# 🔗 Sub-issue Closer
+# Auto-closes linked issues when a PR is merged
+name: "🔗 Sub-issue Closer"
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  close-issues:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+
+            // Find all linked issue numbers
+            const closePatterns = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
+            const issueNumbers = new Set();
+            let match;
+            while ((match = closePatterns.exec(body)) !== null) {
+              issueNumbers.add(parseInt(match[1]));
+            }
+
+            // Also find bare #N references in the title
+            const titlePattern = /\[#(\d+)\]/g;
+            while ((match = titlePattern.exec(pr.title)) !== null) {
+              issueNumbers.add(parseInt(match[1]));
+            }
+
+            for (const issueNumber of issueNumbers) {
+              try {
+                const issue = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                });
+
+                if (issue.data.state === 'open') {
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    state: 'closed',
+                    state_reason: 'completed',
+                  });
+
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `✅ Closed by PR #${pr.number} (merged by @${pr.merged_by?.login || 'unknown'})`,
+                  });
+
+                  console.log(`Closed issue #${issueNumber}`);
+                }
+              } catch (e) {
+                console.log(`Could not close issue #${issueNumber}: ${e.message}`);
+              }
+            }
