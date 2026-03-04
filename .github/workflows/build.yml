@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [ main ]
 
+
+concurrency:n  group: build-${{ github.ref }}n  cancel-in-progress: truen
 jobs:
   build:
     runs-on: ubuntu-latest
