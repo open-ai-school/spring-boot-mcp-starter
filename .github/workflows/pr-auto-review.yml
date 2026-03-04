@@ -1,0 +1,120 @@
+# 🔍 PR Auto-Review
+# Runs checks and labels PR when marked ready for review
+name: "🔍 PR Auto-Review"
+
+on:
+  pull_request:
+    types: [ready_for_review, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+  checks: read
+
+jobs:
+  auto-review:
+    if: "!github.event.pull_request.draft"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            // Analyse the PR
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+
+            const stats = {
+              filesChanged: files.data.length,
+              additions: files.data.reduce((sum, f) => sum + f.additions, 0),
+              deletions: files.data.reduce((sum, f) => sum + f.deletions, 0),
+              testFiles: files.data.filter(f => f.filename.match(/test|spec|__tests__/i)).length,
+              docFiles: files.data.filter(f => f.filename.match(/\.md$|docs\//i)).length,
+            };
+
+            const labels = [];
+            const warnings = [];
+
+            // Size labels
+            const totalChanges = stats.additions + stats.deletions;
+            if (totalChanges <= 10) labels.push('size/XS');
+            else if (totalChanges <= 50) labels.push('size/S');
+            else if (totalChanges <= 200) labels.push('size/M');
+            else if (totalChanges <= 500) labels.push('size/L');
+            else labels.push('size/XL');
+
+            // Check for tests
+            if (stats.testFiles === 0 && stats.filesChanged > 1) {
+              warnings.push('⚠️ No test files changed — consider adding tests');
+            }
+
+            // Check for large PRs
+            if (totalChanges > 500) {
+              warnings.push('⚠️ Large PR (500+ lines) — consider splitting into smaller PRs');
+            }
+
+            // Check PR body has description
+            if (!pr.body || pr.body.length < 50) {
+              warnings.push('⚠️ PR description is brief — add more context for reviewers');
+            }
+
+            // Check for linked issues
+            const hasLinkedIssue = pr.body && (
+              pr.body.match(/(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+/i) ||
+              pr.body.match(/#\d+/)
+            );
+            if (!hasLinkedIssue) {
+              warnings.push('⚠️ No linked issue found — link an issue with "Closes #123"');
+            }
+
+            // Ensure labels exist and add them
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner, repo: context.repo.repo, name: label,
+                });
+              } catch {
+                const colors = { 'size/XS': 'c2e0c6', 'size/S': 'c2e0c6', 'size/M': 'fef2c0', 'size/L': 'f9d0c4', 'size/XL': 'd73a4a' };
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  name: label, color: colors[label] || 'ededed',
+                });
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: labels,
+            });
+
+            // Post review summary
+            if (warnings.length > 0 || stats.filesChanged > 0) {
+              let body = `## 🔍 Auto-Review Summary\n\n`;
+              body += `| Metric | Value |\n|--------|-------|\n`;
+              body += `| Files changed | ${stats.filesChanged} |\n`;
+              body += `| Lines added | +${stats.additions} |\n`;
+              body += `| Lines removed | -${stats.deletions} |\n`;
+              body += `| Test files | ${stats.testFiles} |\n`;
+              body += `| Doc files | ${stats.docFiles} |\n\n`;
+
+              if (warnings.length > 0) {
+                body += `### Warnings\n\n${warnings.join('\n')}\n\n`;
+              }
+
+              body += `---\n*🤖 Auto-review by PR Review Bot*`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: body,
+              });
+            }
