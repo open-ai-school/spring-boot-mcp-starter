@@ -6,6 +6,8 @@ on:
   issues:
     types: [closed]
 
+
+concurrency:n  group: plan-closer-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   issues: write
 
