@@ -6,6 +6,8 @@ on:
   issues:
     types: [labeled]
 
+
+concurrency:n  group: draft-pr-creator-${{ github.ref }}n  cancel-in-progress: truen
 permissions:
   contents: write
   pull-requests: write
