@@ -3,7 +3,7 @@
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-6DB33F?logo=springboot)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Build](https://github.com/rameshreddy-adutla/spring-boot-mcp-starter/actions/workflows/build.yml/badge.svg)](https://github.com/rameshreddy-adutla/spring-boot-mcp-starter/actions)
+[![Build](https://github.com/open-ai-school/spring-boot-mcp-starter/actions/workflows/build.yml/badge.svg)](https://github.com/open-ai-school/spring-boot-mcp-starter/actions)
 
 A lightweight Spring Boot starter for building [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers in Java. Define tools, resources, and prompts with annotations — no boilerplate.
 
