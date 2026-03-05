@@ -75,10 +75,6 @@ jobs:
               toAdd.push('size/M');
             }
 
-            // --- Needs plan for non-trivial issues ---
-            if (!labels.has('good first issue') && !text.includes('typo') && body.length > 100) {
-              toAdd.push('needs-plan');
-            }
 
             // Ensure all labels exist, then add
             for (const label of toAdd) {
